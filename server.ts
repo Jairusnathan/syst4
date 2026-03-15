@@ -49,18 +49,29 @@ const branchCount = db.prepare('SELECT COUNT(*) as count FROM branches').get() a
 if (branchCount.count === 0) {
   const insertBranch = db.prepare('INSERT INTO branches (name, address, phone, opening_time, closing_time) VALUES (?, ?, ?, ?, ?)');
   insertBranch.run('Main Branch (Makati)', '123 Ayala Avenue, Makati City', '+63281234567', '08:00', '22:00');
-  insertBranch.run('BGC Branch', 'High Street, BGC, Taguig City', '+63287654321', '09:00', '23:00');
-  insertBranch.run('Quezon City Branch', 'Trinoma Mall, Quezon City', '+63289876543', '10:00', '21:00');
+  insertBranch.run('BGC Branch (Late Night)', 'High Street, BGC, Taguig City', '+63287654321', '14:00', '02:00');
+  insertBranch.run('Quezon City Branch (Early)', 'Trinoma Mall, Quezon City', '+63289876543', '06:00', '18:00');
 
-  // Seed inventory (all products available in all branches for now)
+  // Seed inventory (varied products per branch)
   const branches = db.prepare('SELECT id FROM branches').all() as { id: number }[];
   const insertInventory = db.prepare('INSERT INTO branch_inventory (branch_id, product_id, stock) VALUES (?, ?, ?)');
   
-  // We'll just seed 1-28 products for all branches
-  for (const branch of branches) {
-    for (let i = 1; i <= 28; i++) {
-      insertInventory.run(branch.id, i.toString(), Math.floor(Math.random() * 100) + 10);
-    }
+  // Branch 1: Products 1-22
+  for (let i = 1; i <= 22; i++) {
+    insertInventory.run(branches[0].id, i.toString(), Math.floor(Math.random() * 100) + 10);
+  }
+  
+  // Branch 2: Products 10-38
+  for (let i = 10; i <= 38; i++) {
+    insertInventory.run(branches[1].id, i.toString(), Math.floor(Math.random() * 100) + 10);
+  }
+  
+  // Branch 3: Products 5-15 and 20-38
+  for (let i = 5; i <= 15; i++) {
+    insertInventory.run(branches[2].id, i.toString(), Math.floor(Math.random() * 100) + 10);
+  }
+  for (let i = 20; i <= 38; i++) {
+    insertInventory.run(branches[2].id, i.toString(), Math.floor(Math.random() * 100) + 10);
   }
 }
 

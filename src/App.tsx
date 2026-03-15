@@ -67,7 +67,12 @@ export default function App() {
     const [closeHour, closeMinute] = branch.closing_time.split(':').map(Number);
     
     const openTime = openHour + openMinute / 60;
-    const closeTime = closeHour + closeMinute / 60;
+    let closeTime = closeHour + closeMinute / 60;
+
+    // Handle overnight hours (e.g., 14:00 to 02:00)
+    if (closeTime < openTime) {
+      return currentTime >= openTime || currentTime <= closeTime;
+    }
 
     return currentTime >= openTime && currentTime <= closeTime;
   };
@@ -88,6 +93,9 @@ export default function App() {
       localStorage.setItem('token', data.token);
       setIsLoggedIn(true);
       setView('home');
+      if (!selectedBranch) {
+        setIsBranchModalOpen(true);
+      }
     } catch (err: any) {
       setAuthError(err.message);
     } finally {
@@ -111,6 +119,9 @@ export default function App() {
       localStorage.setItem('token', data.token);
       setIsLoggedIn(true);
       setView('home');
+      if (!selectedBranch) {
+        setIsBranchModalOpen(true);
+      }
     } catch (err: any) {
       setAuthError(err.message);
     } finally {
@@ -219,7 +230,10 @@ export default function App() {
                     type="text"
                     placeholder="Search medicines, vitamins..."
                     value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
+                    onChange={(e) => {
+                      setSearchQuery(e.target.value);
+                      setCurrentPage(1);
+                    }}
                     className="w-full pl-10 pr-4 py-2 bg-slate-100 border-transparent rounded-full focus:bg-white focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200 transition-all outline-none"
                   />
                 </div>
@@ -279,7 +293,10 @@ export default function App() {
                   type="text"
                   placeholder="Search products..."
                   value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
+                  onChange={(e) => {
+                    setSearchQuery(e.target.value);
+                    setCurrentPage(1);
+                  }}
                   className="w-full pl-10 pr-4 py-2 bg-slate-100 border-transparent rounded-full focus:bg-white focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200 transition-all outline-none"
                 />
               </div>
@@ -451,6 +468,31 @@ export default function App() {
         <main className="flex flex-col min-h-screen">
           {/* Hero Section */}
           <section className="bg-emerald-50 py-20 px-4 sm:px-6 lg:px-8 relative overflow-hidden">
+            {!selectedBranch && isLoggedIn && (
+              <motion.div 
+                initial={{ opacity: 0, y: -20 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="max-w-7xl mx-auto mb-8"
+              >
+                <div className="bg-white border-l-4 border-amber-400 p-4 rounded-r-xl shadow-sm flex flex-col sm:flex-row items-center justify-between gap-4">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-amber-50 rounded-full">
+                      <MapPin className="w-5 h-5 text-amber-600" />
+                    </div>
+                    <div>
+                      <p className="font-bold text-slate-900">Delivery Location Required</p>
+                      <p className="text-sm text-slate-500">Please select a branch to see accurate product availability and delivery times.</p>
+                    </div>
+                  </div>
+                  <button 
+                    onClick={() => setIsBranchModalOpen(true)}
+                    className="whitespace-nowrap bg-amber-500 text-white px-6 py-2 rounded-full font-bold text-sm hover:bg-amber-600 transition-colors shadow-sm"
+                  >
+                    Select Branch Now
+                  </button>
+                </div>
+              </motion.div>
+            )}
             <div className="max-w-7xl mx-auto text-center relative z-10">
               <h1 className="text-4xl md:text-6xl font-extrabold text-slate-900 mb-6 tracking-tight">
                 Your Health, <span className="text-emerald-600">Delivered Fast</span>
@@ -458,12 +500,21 @@ export default function App() {
               <p className="text-lg md:text-xl text-slate-600 mb-10 max-w-2xl mx-auto">
                 Get your medicines, vitamins, and daily essentials delivered right to your doorstep with PharmaQuick. Safe, reliable, and fast.
               </p>
-              <button 
-                onClick={() => setView('shop')} 
-                className="bg-emerald-600 text-white px-8 py-4 rounded-full font-bold text-lg hover:bg-emerald-700 transition-all shadow-lg hover:shadow-xl hover:-translate-y-1"
-              >
-                Shop Now
-              </button>
+              <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
+                <button 
+                  onClick={() => setView('shop')} 
+                  className="w-full sm:w-auto bg-emerald-600 text-white px-8 py-4 rounded-full font-bold text-lg hover:bg-emerald-700 transition-all shadow-lg hover:shadow-xl hover:-translate-y-1"
+                >
+                  Shop Now
+                </button>
+                <button 
+                  onClick={() => setIsBranchModalOpen(true)} 
+                  className="w-full sm:w-auto bg-white text-emerald-600 border-2 border-emerald-600 px-8 py-4 rounded-full font-bold text-lg hover:bg-emerald-50 transition-all shadow-md hover:shadow-lg hover:-translate-y-1 flex items-center justify-center gap-2"
+                >
+                  <MapPin className="w-5 h-5" />
+                  Choose Branch
+                </button>
+              </div>
             </div>
           </section>
 
@@ -1165,7 +1216,7 @@ export default function App() {
               <div className="p-6 border-b border-slate-100 flex items-center justify-between bg-white sticky top-0 z-10">
                 <div>
                   <h2 className="text-2xl font-bold text-slate-900">Select a Branch</h2>
-                  <p className="text-slate-500 text-sm mt-1">Choose a branch to see available products</p>
+                  <p className="text-slate-500 text-sm mt-1">Choose an open branch to see available products</p>
                 </div>
                 <button 
                   onClick={() => setIsBranchModalOpen(false)}
@@ -1185,16 +1236,19 @@ export default function App() {
                       <div 
                         key={branch.id}
                         onClick={() => {
+                          if (!isOpen) return;
                           if (selectedBranch?.id !== branch.id) {
                             setCart([]);
                           }
                           setSelectedBranch(branch);
                           setIsBranchModalOpen(false);
                         }}
-                        className={`p-4 rounded-2xl border-2 cursor-pointer transition-all ${
-                          isSelected 
-                            ? 'border-emerald-500 bg-emerald-50' 
-                            : 'border-slate-100 hover:border-emerald-200 hover:bg-slate-50'
+                        className={`p-4 rounded-2xl border-2 transition-all ${
+                          !isOpen 
+                            ? 'border-slate-100 bg-slate-50 opacity-60 cursor-not-allowed' 
+                            : isSelected 
+                              ? 'border-emerald-500 bg-emerald-50 cursor-pointer' 
+                              : 'border-slate-100 hover:border-emerald-200 hover:bg-slate-50 cursor-pointer'
                         }`}
                       >
                         <div className="flex justify-between items-start mb-2">
@@ -1216,6 +1270,15 @@ export default function App() {
                             <span>{branch.opening_time} - {branch.closing_time}</span>
                           </div>
                         </div>
+
+                        {!isOpen && (
+                          <div className="mt-3 pt-3 border-t border-red-100">
+                            <p className="text-xs text-red-600 font-medium flex items-center gap-1">
+                              <X className="w-3 h-3" />
+                              This branch is currently closed and cannot be selected.
+                            </p>
+                          </div>
+                        )}
                       </div>
                     );
                   })}
